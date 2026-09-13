@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: team_knowledge_base
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./team_knowledge.db:/app/team_knowledge.db
+      - ./static:/app/static
+    env_file:
+      - .env
+    restart: unless-stopped

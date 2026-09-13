@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Knowledge Base</title>
+    <style>
+        :root {
+            --bg: #f4f7f6; --card: #ffffff; --text: #333; --border: #e0e0e0;
+            --primary: #4a90e2; --success: #2ecc71; --warning: #f39c12; --danger: #e74c3c;
+        }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { margin: 0; color: #2c3e50; }
+        
+        /* Навигация — 3 явных экрана */
+        .nav { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        .nav-btn { padding: 12px 24px; background: var(--card); border: 2px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; transition: 0.2s; }
+        .nav-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .nav-btn .count { background: var(--danger); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 5px; }
+        
+        /* Экраны */
+        .screen { display: none; }
+        .screen.active { display: block; }
+        
+        /* Таблица */
+        .table-container { background: var(--card); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: #f8f9fa; font-weight: 600; color: #555; }
+        tr:hover { background: #f1f4f8; cursor: pointer; }
+        
+        /* Статусы */
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; color: white; }
+        .badge-new { background: #95a5a6; }
+        .badge-processed { background: var(--success); }
+        .badge-review { background: var(--warning); }
+        .badge-error { background: var(--danger); }
+        .badge-resolved { background: #8e44ad; }
+        .badge-rejected { background: #7f8c8d; }
+
+        /* Экран Деталей — полноценная страница */
+        .detail-card { background: var(--card); padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .detail-card h2 { margin-top: 0; color: #2c3e50; }
+        .detail-row { margin-bottom: 15px; }
+        .detail-label { font-weight: 600; color: #555; display: inline-block; width: 120px; }
+        .json-box { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 0.9em; overflow-x: auto; white-space: pre-wrap; margin-top: 20px; }
+        .review-form { background: #fff8e1; border: 2px solid var(--warning); border-radius: 8px; padding: 20px; margin-top: 20px; }
+        .review-form h3 { margin-top: 0; color: #e67e22; }
+        .review-form textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; font-family: inherit; box-sizing: border-box; resize: vertical; }
+        .review-form input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; box-sizing: border-box; margin-bottom: 10px; }
+        
+        /* Кнопки */
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #357abd; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #27ae60; }
+        .btn-export { background: #9b59b6; color: white; }
+        .btn-export:hover { background: #8e44ad; }
+        
+        /* Форма создания */
+        .create-form { background: var(--card); padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; }
+        input { padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 1em; flex: 1; }
+        
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧠 Team Knowledge Base</h1>
+        <button class="btn btn-export" onclick="exportToCSV()">📥 Экспорт в CSV</button>
+    </header>
+
+    <!-- Навигация: 3 явных экрана -->
+    <div class="nav">
+        <button class="nav-btn active" onclick="showScreen('dashboard', this)">📋 Витрина</button>
+        <button class="nav-btn" onclick="showScreen('review', this)">⚠️ Требуют проверки <span class="count" id="reviewCount">0</span></button>
+        <button class="nav-btn" onclick="showScreen('details', this)">🔍 Детали</button>
+    </div>
+
+    <!-- ЭКРАН 1: Витрина -->
+    <div class="screen active" id="screen-dashboard">
+        <div class="toolbar">
+            <h2>Все заявки</h2>
+        </div>
+
+        <!-- Загрузка документов -->
+        <div style="background: var(--card); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+            <h3 style="margin-top: 0; color: #2c3e50;">📤 Загрузить документ в базу знаний</h3>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+                <input type="text" id="fileCategory" placeholder="Категория (например: HR)" value="Общее" style="width: 200px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 1em;">
+                <button class="btn btn-primary" onclick="uploadFile()">Загрузить</button>
+            </div>
+            <div id="uploadStatus" style="margin-top: 10px; font-size: 0.9em;"></div>
+        </div>
+
+        <div class="create-form">
+            <input type="text" id="newUser" placeholder="Ваше имя" value="Тестовый Пользователь">
+            <input type="text" id="newQuestion" placeholder="Задайте вопрос базе знаний...">
+            <button class="btn btn-primary" onclick="createQuery()">Задать вопрос</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Пользователь</th>
+                        <th>Вопрос</th>
+                        <th>Статус</th>
+                        <th>Дата</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 2: Ручная проверка -->
+    <div class="screen" id="screen-review">
+        <div class="toolbar">
+            <h2>Заявки, требующие ручной проверки</h2>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Пользователь</th>
+                        <th>Вопрос</th>
+                        <th>Причина проверки</th>
+                        <th>Дата</th>
+                    </tr>
+                </thead>
+                <tbody id="reviewTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 3: Детали -->
+    <div class="screen" id="screen-details">
+        <div class="detail-card">
+            <h2>Детали заявки #<span id="detailId">—</span></h2>
+            <div class="detail-row">
+                <span class="detail-label">Пользователь:</span>
+                <span id="detailUser">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Вопрос:</span>
+                <span id="detailQuestion">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Статус:</span>
+                <span id="detailStatus">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Дата:</span>
+                <span id="detailDate">—</span>
+            </div>
+            <!-- Ответ эксперта — виден когда статус resolved -->
+            <div id="expertAnswerBlock" style="display:none; background:#eafaf1; border:2px solid #2ecc71; border-radius:8px; padding:20px; margin-top:15px;">
+                <h3 style="margin-top:0; color:#27ae60;">✅ Ответ эксперта</h3>
+                <p id="expertAnswerText" style="font-size:1.05em; line-height:1.6; margin:0 0 10px;"></p>
+                <small id="expertMeta" style="color:#888;"></small>
+            </div>
+
+            <h3>Сырой вывод ИИ (Аудит):</h3>
+            <div class="json-box" id="detailJson">Нет данных аудита</div>
+
+            <!-- Форма ревью эксперта — видна только при статусе needs_review -->
+            <div class="review-form" id="reviewForm" style="display:none;">
+                <h3>✍️ Ответ эксперта</h3>
+                <label style="font-weight:600;">Ваше имя:</label>
+                <input type="text" id="reviewerName" placeholder="Иванов Иван" style="margin-top:5px;">
+                <label style="font-weight:600;">Правильный ответ:</label>
+                <textarea id="reviewAnswer" rows="4" placeholder="Введите корректный ответ для сотрудника..." style="margin-top:5px; margin-bottom:10px;"></textarea>
+                <label style="font-weight:600;">Комментарий (необязательно):</label>
+                <textarea id="reviewComment" rows="2" placeholder="Почему ИИ ошибся или не нашёл ответ..." style="margin-top:5px; margin-bottom:15px;"></textarea>
+                <button class="btn btn-success" onclick="submitReview()">✅ Отправить ответ эксперта</button>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button class="btn btn-success" onclick="processCurrentQuery()" id="processBtn">⚙️ Запустить ИИ-обработку</button>
+                <button class="btn btn-primary" onclick="showScreen('dashboard', null)" style="margin-left: 10px;">← Назад к витрине</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = '';
+    let currentQueries = [];
+    let selectedQueryId = null;
+
+    async function loadData() {
+        const res = await fetch(`${API_URL}/api/queries`);
+        currentQueries = await res.json();
+        renderDashboard();
+        renderReview();
+        updateReviewCount();
+    }
+
+    function showScreen(screenName, btn) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`screen-${screenName}`).classList.add('active');
+        if (btn) btn.classList.add('active');
+    }
+
+    function renderDashboard() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        currentQueries.forEach(q => {
+            const tr = document.createElement('tr');
+            tr.onclick = () => openDetails(q.id);
+            tr.innerHTML = `
+                <td>${q.id}</td>
+                <td>${q.user || 'Аноним'}</td>
+                <td>${q.question}</td>
+                <td><span class="badge badge-${getStatusClass(q.status)}">${translateStatus(q.status)}</span></td>
+                <td>${new Date(q.created_at).toLocaleString('ru-RU')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderReview() {
+        const tbody = document.getElementById('reviewTableBody');
+        tbody.innerHTML = '';
+        currentQueries.filter(q => q.status === 'needs_review').forEach(q => {
+            const tr = document.createElement('tr');
+            tr.onclick = () => openDetails(q.id);
+            tr.innerHTML = `
+                <td>${q.id}</td>
+                <td>${q.user || 'Аноним'}</td>
+                <td>${q.question}</td>
+                <td>⚠️ Требуется проверка эксперта</td>
+                <td>${new Date(q.created_at).toLocaleString('ru-RU')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function updateReviewCount() {
+        document.getElementById('reviewCount').innerText =
+            currentQueries.filter(q => q.status === 'needs_review').length;
+    }
+
+    async function openDetails(id) {
+        selectedQueryId = id;
+        const res = await fetch(`${API_URL}/api/queries/${id}`);
+        const data = await res.json();
+
+        document.getElementById('detailId').innerText = data.id;
+        document.getElementById('detailUser').innerText = data.user || 'Аноним';
+        document.getElementById('detailQuestion').innerText = data.question;
+        document.getElementById('detailStatus').innerHTML =
+            `<span class="badge badge-${getStatusClass(data.status)}">${translateStatus(data.status)}</span>`;
+        document.getElementById('detailDate').innerText = new Date(data.created_at).toLocaleString('ru-RU');
+
+        try {
+            const parsed = JSON.parse(data.audit_output);
+            document.getElementById('detailJson').innerText = JSON.stringify(parsed, null, 2);
+        } catch {
+            document.getElementById('detailJson').innerText = data.audit_output || 'Аудит еще не создан';
+        }
+
+        document.getElementById('processBtn').style.display = data.status === 'new' ? 'inline-block' : 'none';
+        document.getElementById('reviewForm').style.display = data.status === 'needs_review' ? 'block' : 'none';
+        document.getElementById('reviewAnswer').value = '';
+        document.getElementById('reviewComment').value = '';
+
+        // Ответ эксперта
+        const expertBlock = document.getElementById('expertAnswerBlock');
+        if (data.expert_answer) {
+            document.getElementById('expertAnswerText').innerText = data.expert_answer;
+            document.getElementById('expertMeta').innerText =
+                `Эксперт: ${data.expert_name || '—'}` +
+                (data.expert_comment ? ` · Комментарий: ${data.expert_comment}` : '');
+            expertBlock.style.display = 'block';
+        } else {
+            expertBlock.style.display = 'none';
+        }
+        showScreen('details', document.querySelectorAll('.nav-btn')[2]);
+    }
+
+    async function createQuery() {
+        const user = document.getElementById('newUser').value;
+        const question = document.getElementById('newQuestion').value;
+        if (!question) return alert('Введите вопрос!');
+
+        await fetch(`${API_URL}/api/queries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_name: user, question: question })
+        });
+        document.getElementById('newQuestion').value = '';
+        loadData();
+    }
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const category = document.getElementById('fileCategory').value || 'Общее';
+        const statusDiv = document.getElementById('uploadStatus');
+
+        if (!fileInput.files[0]) {
+            statusDiv.innerHTML = '<span style="color:#e74c3c;">⚠️ Выберите файл</span>';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('category', category);
+
+        statusDiv.innerHTML = '<span style="color:#4a90e2;">⏳ Загрузка и извлечение текста...</span>';
+
+        try {
+            const res = await fetch(`${API_URL}/api/documents/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                statusDiv.innerHTML = `<span style="color:#e74c3c;">❌ ${data.detail || 'Ошибка загрузки'}</span>`;
+            } else {
+                statusDiv.innerHTML = `<span style="color:#2ecc71;">✅ Загружено: <b>${data.filename}</b> — ${data.characters.toLocaleString()} символов, категория: ${data.category}</span>`;
+                fileInput.value = '';
+            }
+        } catch (err) {
+            statusDiv.innerHTML = `<span style="color:#e74c3c;">❌ Ошибка: ${err.message}</span>`;
+        }
+    }
+
+    async function submitReview() {
+        const reviewerName = document.getElementById('reviewerName').value.trim();
+        const correctAnswer = document.getElementById('reviewAnswer').value.trim();
+        const comment = document.getElementById('reviewComment').value.trim();
+
+        if (!reviewerName) return alert('Введите ваше имя.');
+        if (!correctAnswer) return alert('Введите правильный ответ.');
+
+        const res = await fetch(`${API_URL}/api/queries/${selectedQueryId}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reviewer_name: reviewerName, correct_answer: correctAnswer, comment: comment })
+        });
+
+        if (res.ok) {
+            await loadData();
+            openDetails(selectedQueryId);
+        } else {
+            const err = await res.json();
+            alert('Ошибка: ' + (err.detail || 'неизвестная'));
+        }
+    }
+
+    async function processCurrentQuery() {
+        await fetch(`${API_URL}/api/queries/${selectedQueryId}/process`, { method: 'POST' });
+        loadData();
+        openDetails(selectedQueryId);
+    }
+
+    function exportToCSV() {
+        const headers = ['ID', 'Пользователь', 'Вопрос', 'Статус', 'Дата'];
+        const rows = currentQueries.map(q => [
+            q.id,
+            q.user || 'Аноним',
+            `"${q.question.replace(/"/g, '""')}"`,
+            translateStatus(q.status),
+            new Date(q.created_at).toLocaleString('ru-RU')
+        ]);
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `queries_export_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+    }
+
+    function getStatusClass(status) {
+        if (status === 'processed') return 'processed';
+        if (status === 'needs_review') return 'review';
+        if (status === 'resolved') return 'resolved';
+        if (status === 'rejected') return 'rejected';
+        if (status === 'error') return 'error';
+        return 'new';
+    }
+
+    function translateStatus(status) {
+        const dict = {
+            'new': 'Новая',
+            'processed': 'Обработана',
+            'needs_review': 'Требует проверки',
+            'resolved': 'Решена экспертом',
+            'rejected': 'Не по теме',
+            'error': 'Ошибка'
+        };
+        return dict[status] || status;
+    }
+
+    loadData();
+</script>
+
+</body>
+</html>

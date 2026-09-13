@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Справочная сотрудника</title>
+    <style>
+        :root { --bg: #f0f2f5; --card: #ffffff; --primary: #4a90e2; --text: #333; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        .header { background: var(--primary); color: white; padding: 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 1.8em; }
+        .header p { margin: 5px 0 0; opacity: 0.9; }
+        
+        .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+        
+        /* Секция Топ-10 */
+        .faq-section { margin-bottom: 40px; }
+        .section-title { font-size: 1.4em; margin-bottom: 20px; color: #2c3e50; border-left: 4px solid var(--primary); padding-left: 10px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .faq-card { background: var(--card); padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border: 1px solid #e0e0e0; }
+        .faq-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-color: var(--primary); }
+        .faq-question { font-weight: 600; margin-bottom: 8px; }
+        .faq-count { font-size: 0.85em; color: #888; }
+        
+        /* Секция ввода */
+        .ask-section { background: var(--card); padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; }
+        button { padding: 15px 30px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: bold; }
+        button:hover { background: #357abd; }
+        
+        /* Ответ */
+        .answer-box { display: none; background: #e8f4fd; padding: 20px; border-radius: 8px; border-left: 4px solid var(--primary); }
+        .answer-box.active { display: block; }
+        .answer-box h3 { margin-top: 0; color: #2c3e50; }
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; margin-top: 10px; }
+        .status-ok { background: #2ecc71; color: white; }
+        .status-review { background: #f39c12; color: white; }
+        
+        .back-link { text-align: center; margin-top: 40px; }
+        .back-link a { color: var(--primary); text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🧠 Справочная сотрудника</h1>
+    <p>Найдите ответ за секунды или задайте вопрос ИИ-ассистенту</p>
+</div>
+
+<div class="container">
+    <!-- ЭКРАН 1: Топ частых вопросов -->
+    <div class="faq-section">
+        <h2 class="section-title">🔥 Популярные вопросы (Топ-10)</h2>
+        <div class="faq-grid" id="faqGrid">
+            <p style="color:#888;">Загрузка популярных вопросов...</p>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 2: Задать свой вопрос -->
+    <div class="ask-section">
+        <h2 class="section-title">Не нашли ответ? Спросите напрямую</h2>
+        <div class="input-group" style="margin-bottom: 10px;">
+            <input type="text" id="userName" placeholder="Ваше имя и фамилия *" required
+                style="border: 1px solid #ddd; border-radius: 6px; padding: 15px; font-size: 1em; width: 100%; box-sizing: border-box;">
+        </div>
+        <div class="input-group">
+            <input type="text" id="userQuestion" placeholder="Например: Как оформить командировку?">
+            <button onclick="askQuestion()">Спросить ИИ</button>
+        </div>
+        
+        <div class="answer-box" id="answerBox">
+            <h3>Ответ системы:</h3>
+            <p id="answerText" style="font-size: 1.1em; line-height: 1.5;"></p>
+            <div id="answerStatus"></div>
+            <div id="checkAnswerBlock" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #b3d4e8;">
+                <p style="margin:0 0 8px; color:#555; font-size:0.95em;">
+                    Номер вашего запроса: <b id="queryIdDisplay"></b>
+                </p>
+                <button onclick="checkExpertAnswer()" style="padding:10px 20px; background:#2ecc71; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">
+                    🔄 Проверить — эксперт уже ответил?
+                </button>
+                <div id="expertAnswerUser" style="display:none; background:#eafaf1; border-left:4px solid #2ecc71; padding:15px; margin-top:15px; border-radius:6px;">
+                    <strong style="color:#27ae60;">✅ Ответ эксперта:</strong>
+                    <p id="expertAnswerUserText" style="margin:8px 0 0; line-height:1.6;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="back-link">
+        <a href="/">🔒 Вход для администраторов</a>
+    </div>
+</div>
+
+<script>
+    const API_URL = '';
+
+    async function loadFAQ() {
+        const res = await fetch(`${API_URL}/api/faq/top10`);
+        const faqs = await res.json();
+        const grid = document.getElementById('faqGrid');
+        grid.innerHTML = '';
+        
+        faqs.forEach(faq => {
+            const card = document.createElement('div');
+            card.className = 'faq-card';
+            card.onclick = () => {
+                document.getElementById('userQuestion').value = faq.question;
+                document.querySelector('.ask-section').scrollIntoView({ behavior: 'smooth' });
+                askQuestion();
+            };
+            card.innerHTML = `
+                <div class="faq-question">${faq.question}</div>
+                <div class="faq-count">Задавали ${faq.count} раз</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    async function askQuestion() {
+        const userName = document.getElementById('userName').value.trim();
+        const question = document.getElementById('userQuestion').value.trim();
+
+        const nameInput = document.getElementById('userName');
+        if (!userName) {
+            nameInput.style.borderColor = '#e74c3c';
+            nameInput.placeholder = '⚠️ Обязательное поле — введите имя и фамилию';
+            nameInput.focus();
+            return;
+        }
+        nameInput.style.borderColor = '#ddd';
+
+        if (!question) return;
+
+        const answerBox = document.getElementById('answerBox');
+        const answerText = document.getElementById('answerText');
+        const answerStatus = document.getElementById('answerStatus');
+        
+        answerText.innerText = '⏳ ИИ думает и ищет в базе знаний...';
+        answerStatus.innerHTML = '';
+        answerBox.classList.add('active');
+
+        const createRes = await fetch(`${API_URL}/api/queries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_name: userName, question: question })
+        });
+        const createData = await createRes.json();
+
+        const processRes = await fetch(`${API_URL}/api/queries/${createData.id}/process`, { method: 'POST' });
+        const processData = await processRes.json();
+        
+        const llm = processData.ai_response;
+        const status = processData.new_status;
+
+        const currentQueryId = createData.id;
+        document.getElementById('checkAnswerBlock').style.display = 'none';
+        document.getElementById('expertAnswerUser').style.display = 'none';
+
+        if (status === 'rejected') {
+            answerText.innerText = 'Вопрос не относится к рабочим или корпоративным темам и не будет обработан. Просьба не засорять эфир.';
+            answerStatus.innerHTML = `<span class="status-badge" style="background:#7f8c8d;color:white;">🚫 Вопрос отклонён</span>`;
+        } else if (llm.needs_review) {
+            answerText.innerText = 'Ваш вопрос передан эксперту на проверку. Когда ответ будет готов — вы можете проверить его ниже.';
+            answerStatus.innerHTML = `<span class="status-badge status-review">⚠️ Передан эксперту</span>`;
+            document.getElementById('queryIdDisplay').innerText = currentQueryId;
+            document.getElementById('checkAnswerBlock').style.display = 'block';
+            document.getElementById('checkAnswerBlock').dataset.queryId = currentQueryId;
+        } else {
+            answerText.innerText = llm.answer;
+            answerStatus.innerHTML = `<span class="status-badge status-ok">✅ Ответ найден в базе знаний</span>`;
+        }
+
+        loadFAQ();
+    }
+
+    async function checkExpertAnswer() {
+        const queryId = document.getElementById('checkAnswerBlock').dataset.queryId;
+        const res = await fetch(`${API_URL}/api/queries/${queryId}`);
+        const data = await res.json();
+
+        if (data.expert_answer) {
+            document.getElementById('expertAnswerUserText').innerText = data.expert_answer;
+            document.getElementById('expertAnswerUser').style.display = 'block';
+        } else {
+            alert('Эксперт ещё не ответил. Попробуйте позже.');
+        }
+    }
+
+    loadFAQ();
+</script>
+
+</body>
+</html>
